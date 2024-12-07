@@ -41,16 +41,34 @@
         (push (second list-elems) lst2)))
     (list lst1 lst2)))
 
+(defun freq (lst)
+  "Given a list of integers, return a number frequency hash where hash key is the
+   integer value, and hash value is the number of times that value ocurred in the
+   list."
+  (let ((result (make-hash-table)))
+    (loop :for elem :in lst
+          :do (setf
+               (gethash elem result)
+               (1+ (gethash elem result 0))))
+    result))
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-  (flet ((distance (a b) (abs (- (abs a) (abs b)))))
-    (let* ((lst1 (sort (first input) #'<))
-           (lst2 (sort (second input) #'<)))
-      (apply #'+ (mapcar #'distance lst1 lst2)))))
+  (loop :for a :in (sort (first input) #'<)
+        :for b :in (sort (second input) #'<)
+        :for distance = (abs (- (abs a) (abs b)))
+        :summing distance))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  (let* ((lst1 (first input))
+         (lst2 (second input))
+         (frequency (freq lst2)))
+    (loop :for elem :in lst1
+          :for count = (gethash elem frequency 0)
+          :when (> count 0)
+            :do (format t "Element ~a found ~a time(s)~%" elem count)
+          :summing (* elem count))))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 1 solutions.
