@@ -33,12 +33,11 @@
   (let ((lst1 nil)
         (lst2 nil))
     (dolist (line lines)
-      (let* ((parts (remove-if-not
-                     (lambda (elem) (> (length elem) 0))
-                     (uiop:split-string line)))
-             (list-elems (mapcar #'parse-integer parts)))
-        (push (first list-elems) lst1)
-        (push (second list-elems) lst2)))
+      (let* ((parts (uiop:split-string line))
+             (val1 (parse-integer (first parts)))
+             (val2 (parse-integer (first (reverse parts)))))
+        (push val1 lst1)
+        (push val2 lst2)))
     (list lst1 lst2)))
 
 (defun freq (lst)
@@ -46,16 +45,14 @@
    integer value, and hash value is the number of times that value ocurred in the
    list."
   (let ((result (make-hash-table)))
-    (loop :for elem :in lst
-          :do (setf
-               (gethash elem result)
-               (1+ (gethash elem result 0))))
+    (loop :for elt :in lst
+          :do (incf (gethash elt result 0)))
     result))
 
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-  (loop :for a :in (sort (first input) #'<)
-        :for b :in (sort (second input) #'<)
+  (loop :for a :in (sort (copy-list (first input)) #'<)
+        :for b :in (sort (copy-list (second input)) #'<)
         :for distance = (abs (- (abs a) (abs b)))
         :summing distance))
 
@@ -64,11 +61,9 @@
   (let* ((lst1 (first input))
          (lst2 (second input))
          (frequency (freq lst2)))
-    (loop :for elem :in lst1
-          :for count = (gethash elem frequency 0)
-          :when (> count 0)
-            :do (format t "Element ~a found ~a time(s)~%" elem count)
-          :summing (* elem count))))
+    (loop :for elt :in lst1
+          :for count = (gethash elt frequency 0)
+          :summing (* elt count))))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 1 solutions.
@@ -79,7 +74,7 @@
          (path-input-test #P"./input-test")
          (path-input (if (equal mode :full)
                          path-input-full
-                       path-input-test))
+                         path-input-test))
          (input (parse-input (read-input path-input))))
     (format t "Part 1: ~a~%" (solve-part-1 input))
     (format t "Part 2: ~a~%" (solve-part-2 input))))
