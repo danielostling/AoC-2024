@@ -2,13 +2,6 @@
 
 (in-package #:day-1)
 
-(defun alist-v (key alist &optional (default 0))
-  "Return value from alist at key or a default value."
-  (let ((pair (assoc key alist :test #'equal)))
-    (if pair
-        (cdr pair)
-        default)))
-
 (defun read-input (path)
   "Read and return puzzle input."
   (uiop:read-file-lines path))
