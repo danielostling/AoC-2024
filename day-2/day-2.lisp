@@ -29,21 +29,21 @@
         :collect (loop :for elt :in (uiop:split-string line)
                        :collect (parse-integer elt))))
 
-
 (defun ok-delta-p (a b)
   "Return T if integers a and b differ by 1, 2 or 3 and NIL otherwise."
   (let ((delta (abs (- a b))))
     (and (>= delta 1)
          (<= delta 3))))
 
-(defun safe-p (readings)
-  "Return T if consecutive values in readings are all 1-3 in distance, else NIL."
-  (let* ((shifted-readings (rest readings))
+(defun safe-p (levels)
+  "Return T if consecutive values in levelss are all ok-delta-p (1-3) in
+   distance, else NIL."
+  (let* ((shifted-levels (rest levels))
          (slopes (loop named safe
-                       :for first-reading :in readings
-                       :for second-reading :in shifted-readings
-                       :for slope = (- second-reading first-reading)
-                       :if (ok-delta-p first-reading second-reading)
+                       :for first-level :in levels
+                       :for second-level :in shifted-levels
+                       :for slope = (- second-level first-level)
+                       :if (ok-delta-p first-level second-level)
                          :collect (plusp slope)
                        :else
                          :do (return-from safe nil))))
@@ -53,8 +53,8 @@
 
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-  (loop :for readings :in input
-        :counting (safe-p readings)))
+  (loop :for levels :in input
+        :counting (safe-p levels)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
