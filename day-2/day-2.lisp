@@ -24,7 +24,6 @@
     (1 3 2 4 5)
     (8 6 4 4 1)
     (1 3 6 7 9))"
-  
   (loop :for line :in lines
         :collect (loop :for elt :in (uiop:split-string line)
                        :collect (parse-integer elt))))
@@ -35,30 +34,47 @@
     (and (>= delta 1)
          (<= delta 3))))
 
-(defun safe-p (levels)
-  "Return T if consecutive values in levelss are all ok-delta-p (1-3) in
+(defun safe-p(levels)
+  "Return T if consecutive values in levels are all ok-delta-p (1-3) in
    distance, else NIL."
   (let* ((shifted-levels (rest levels))
-         (slopes (loop named safe
-                       :for first-level :in levels
-                       :for second-level :in shifted-levels
-                       :for slope = (- second-level first-level)
-                       :if (ok-delta-p first-level second-level)
-                         :collect (plusp slope)
-                       :else
-                         :do (return-from safe nil))))
+         (slopes (loop
+                   :for this-level :in levels
+                   :for next-level :in shifted-levels
+                   :for slope = (- next-level this-level)
+                   :if (ok-delta-p this-level next-level)
+                     :collect (plusp slope)
+                   :else
+                     :return nil)))
     (if (null slopes)
         nil
         (every #'eql slopes (rest slopes)))))
 
+(defun remove-elt (idx lst)
+  "Remove one element at index idx from list lst. Return a newly allocated list.
+   No bounds checking is done."
+  (concatenate 'list (subseq lst 0 idx) (copy-list (nthcdr (1+ idx) lst))))
+
+(defun safe-ish-p (levels)
+  "Brute force solution by removing one measurement at a time.
+   Return t if a safe set is found, else nil."
+  (if (safe-p levels)
+      t
+      (loop :for idx :from 0 :below (length levels)
+            :when (safe-p (remove-elt idx levels))
+              :return t)))
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
   (loop :for levels :in input
-        :counting (safe-p levels)))
+        :count (safe-p levels)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  ;; This is a straight brute-force of all combinations.
+  ;; Not elegant but it gets the solution done.
+  (loop :for levels :in input
+        :count (safe-ish-p levels)))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 2 solution.
