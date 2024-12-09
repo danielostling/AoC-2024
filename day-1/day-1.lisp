@@ -59,7 +59,7 @@
           :summing (* elt count))))
 
 (defun main (&optional (mode :full))
-  "AoC 2024 day 1 solutions.
+  "AoC 2024 day 1 solution.
    Mode is one of
    :full - use full puzzle input
    :test - use test puzzle input"
