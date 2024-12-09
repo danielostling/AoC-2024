@@ -58,8 +58,7 @@
 (defun safe-ish-p (levels)
   "Brute force solution by removing one measurement at a time.
    Return t if a safe set is found, else nil."
-  (if (safe-p levels)
-      t
+  (or (safe-p levels)
       (loop :for idx :from 0 :below (length levels)
             :when (safe-p (remove-elt idx levels))
               :return t)))
