@@ -38,7 +38,8 @@
    8 9 a b
    c d e f
 
-   Then, a call to get-diagonal with array and
+   and array is accessed by (row, col) pairs,
+   then, a call to get-diagonal with array and
    - row = 2, col = 0 would return (8 5 2)
    - row = 0, col = 0 would return (0)
    - row = 3, col = 0 would return (c 9 6 3)
@@ -66,6 +67,7 @@
    8 9 a b
    c d e f
 
+   (and array is accessed by (row, col) pairs)
    First starting point is (0, 0), second is (1, 0), continuing to (3, 0).
    Next, direction changes to right, (3, 1), then (3, 2) and finally (3, 3).
 
