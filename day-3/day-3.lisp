@@ -8,8 +8,9 @@
 
 (defun parse-input (lines)
   "Parse input lines into solution-friendly format."
-  ;; Do nothing for this puzzle.
-  lines)
+  ;; Turns out the lines in the input carry over enable/disable operations.
+  ;; Join the strings into a single string.
+  (format nil "~{~a~}" lines))
 
 (defun do-mul (line)
   "Search given line for substring `mul(x,y)` where x and y are integers.
@@ -40,7 +41,6 @@
     (let* ((parse-regex "do\\(\\)|don\\'t\\(\\)|mul\\(\\d+,\\d+\\)")
            (raw-operations (cl-ppcre:all-matches-as-strings parse-regex line))
            (mul-enabled t))
-      (format t "~a~%" raw-operations)
       (loop :for op :in raw-operations
             ;; Test for "do()"
             :when (string= (subseq op 0 3) "do(")
@@ -52,21 +52,15 @@
             ;; Test for "mul(x,y)"
             :when (and (string= (subseq op 0 4) "mul(")
                        mul-enabled)
-              :sum (calculate op)
-            :when (and (string= (subseq op 0 4) "mul(")
-                       (not mul-enabled))
-              :do (format t "Skipping ~a~%" op)
-            ))))
+              :sum (calculate op)))))
 
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-  (loop :for line :in input
-        :summing (do-mul line)))
+  (do-mul input))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-    (loop :for line :in input
-          :summing (do-mul-with-toggle line)))
+  (do-mul-with-toggle input))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 2 solution.
