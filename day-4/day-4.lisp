@@ -81,9 +81,9 @@
           :do (push
                (coerce (get-diagonal arr row 0) 'string)
                diagonals))
-    
     ;; Next go right along bottom edge.
-    (loop :for col :from 0 :below cols
+    ;; NOTE: Start with col 1. Col 0 was added from previous loop.
+    (loop :for col :from 1 :below cols
           :do (push
                (coerce (get-diagonal arr (1- rows) col) 'string)
                diagonals))
@@ -95,7 +95,8 @@
   (let* ((xmas "XMAS")
          (rows (array-dimension arr 0)))
     (loop :for row :from 0 :below rows
-          :summing (cl-ppcre:count-matches xmas (get-row arr row)))))
+          :for matches = (cl-ppcre:count-matches xmas (get-row arr row))
+          :summing matches)))
 
 (defun rotate-right (arr)
   "Rotate array right by 90 degrees."
@@ -115,9 +116,7 @@
    XMAS. Return number of found cases of the string."
   (let ((cur-arr (alexandria:copy-array arr)))
     (loop :for angle :from 90 :to 360 :by 90
-          :do (progn
-                (setf cur-arr (rotate-right cur-arr))
-                (format t "horiz/vert: rotated to ~a degrees~%" angle))
+          :do (setf cur-arr (rotate-right cur-arr))
           :sum (scan-left-to-right cur-arr))))
 
 (defun scan-string-list (lst)
@@ -135,12 +134,8 @@
   (let ((cur-arr (alexandria:copy-array arr)))
     ;; Start at 90 degrees because of how loop directive order sets aggregation last.
     (loop :for angle :from 90 :to 360 :by 90
-          :do (progn
-                (setf cur-arr (rotate-right cur-arr))
-                (format t "diag: rotated once to ~a degrees~%" angle))
+          :do (setf cur-arr (rotate-right cur-arr))
           :sum (scan-string-list (get-diagonals cur-arr)))))
-
-
 
 (defun test-arr ()
   (make-array '(3 3)
@@ -148,6 +143,20 @@
               :initial-contents '((#\A #\B #\C)
                                   (#\D #\E #\F)
                                   (#\G #\H #\I))))
+
+(defun test-arr2()
+  (make-array '(10 10)
+              :element-type 'character
+              :initial-contents '((#\. #\. #\. #\. #\X #\X #\M #\A #\S #\.)
+                                  (#\. #\S #\A #\M #\X #\M #\S #\. #\. #\.)
+                                  (#\. #\. #\. #\S #\. #\. #\A #\. #\. #\.)
+                                  (#\. #\. #\A #\. #\A #\. #\M #\S #\. #\X)
+                                  (#\X #\M #\A #\S #\A #\M #\X #\. #\M #\M)
+                                  (#\X #\. #\. #\. #\. #\. #\X #\A #\. #\A)
+                                  (#\S #\. #\S #\. #\S #\. #\S #\. #\S #\S)
+                                  (#\. #\A #\. #\A #\. #\A #\. #\A #\. #\A)
+                                  (#\. #\. #\M #\. #\M #\. #\M #\. #\M #\M)
+                                  (#\. #\X #\. #\X #\. #\X #\M #\A #\S #\X))))
 
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
