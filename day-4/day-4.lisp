@@ -206,7 +206,8 @@
    Produce a list of 3x3 windows by sliding it across arr, left to right, and
    top to bottom. For each window, scan diagonals in all directions for the
    string 'MAS'. If 'MAS' is present as a cross (see example in make-windows
-   docstring), then the window is to be counted, else not.
+   docstring), then the window contains an x-mas cross, and is to be counted,
+   else not.
 
    Return number of such 'MAS' crosses found in arr, across all windows."
   (let ((windows (make-windows arr)))
