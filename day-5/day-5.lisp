@@ -70,6 +70,74 @@
           :do (setf (gethash page page-rules-hash) later-pages))
     page-rules-hash))
 
+(defun strictly-less-p-not-used (sought-page page-tree &optional (to-check nil))
+  "Perform a recursive tree-like search for sought-page in page-tree.
+
+   page-tree structure is a hash with integers as keys, and lists of integers as
+   values. If sought-page is not found in value list of a page-tree key,
+   recursively search for the sought-page by looking up each element in value
+   list in the page-tree.
+
+   Return true if sought-page is found, else nil."
+
+        ;; No more elements to check => nil
+  (cond ((null to-check) nil) 
+
+        ;; Element found => t
+        ((member sought-page to-check :test #'=) t)
+
+        ;; If the intersection of to-check and expanded to-check is nil, then
+        ;; abort too.
+        ((null (set-difference to-check (remove-duplicates
+                                         (copy-list
+                                          (alexandria:flatten
+                                           (loop :for page :in to-check
+                                                 :collecting (gethash page page-tree)))))))
+         nil)
+ 
+        ;; Expand all key-to-value mappings and try again.
+        (t (strictly-less-p sought-page page-tree
+                            (remove-duplicates
+                             (copy-list
+                               (alexandria:flatten
+                                (loop :for page :in to-check
+                                      :collecting (gethash page page-tree)))))))))
+
+(defun strictly-less-p (page-a page-b page-rules)
+  "Check if page-b is a member of page-a values in page-rules.
+
+   page-tree structure is a hash with integers as keys, and lists of integers as
+   values. If page-b is not found in value list of page-rules key page-a,
+   return nil. Else return rest of list from search hit.
+
+   This was not my first intuition. My first was the sort predicate seen in
+   strictly-less-p-not-used function."
+  (member page-b (gethash page-a page-rules)))
+
+(defun make-page-sort-predicate (page-rules)
+  "Generate a predicate function for the CL sort function based on page sorting
+   rules.
+
+   From CLHS on sort: `Predicate should return true if and only if the first
+   argument is strictly less than the second (in some appropriate sense). If the
+   first argument is greater than or equal to the second (in the appropriate
+   sense), then the predicate should return false.`
+
+   Given knowledge about the sort rules, return a function that takes arguments
+   page-a and page-b, return true or false according to page sort rules and CL
+   sort predicate function."
+
+  ;; For strictly-less-p-not-used function.
+  ;; (lambda (page-a page-b) (strictly-less-p
+  ;;                          page-b
+  ;;                          page-rules
+  ;;                          (gethash page-a page-rules)))
+
+  (lambda (page-a page-b) (strictly-less-p
+                           page-a
+                           page-b
+                           page-rules)))
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
   (let* ((page-rules-list (first input))
@@ -88,7 +156,14 @@
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  (let* ((page-rules-list (first input))
+         (page-rules (make-rules-hash page-rules-list))
+         (updates (second input))
+         (sortp (make-page-sort-predicate page-rules)))
+    (loop :for update :in updates
+          :unless (ok-update update page-rules)
+            :sum (nth (/ (1- (length update)) 2)
+                      (sort (copy-seq update) sortp)))))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 5 solution.
