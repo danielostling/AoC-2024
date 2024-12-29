@@ -87,9 +87,63 @@
                   guard-col guard-next-col)
       :do (setf (aref room guard-row guard-col) 1))))
 
+
+(defun guard-loops-p (room guard-pos)
+  "Return t if given single obstacle position in room would cause the guard to
+   'loop', else nil.
+
+   This one is a bit too complicated for me to do an optimal solution. I think I
+   have to brute force it and see how long it takes.
+
+   Loop detection
+   --------------
+   Keep track of visited positions, and what direction guard had.
+   If a new position with a direction appears in tracked list, the position was
+   visited before and in the same direction. This means the guard is looping."
+  (let* ((guard-row (first guard-pos))
+         (guard-col (second guard-pos))
+         (guard-direction :up)
+         (step-fn (guard-step-function guard-direction))
+         (room-rows (array-dimension room 0))
+         (room-cols (array-dimension room 1))
+         (guard-pos-and-dir ())
+         (visited-positions ()))
+    (setf (aref room guard-row guard-col) 1)
+    (push (list guard-row guard-col guard-direction) visited-positions)
+    (loop
+          :for (guard-next-row guard-next-col) = (funcall step-fn guard-row guard-col)
+          ;; :when (guard-left-room-p guard-next-row guard-next-col room-rows room-cols)
+          ;;   :do (format t "Guard left room (~a, ~a)~%" guard-next-row guard-next-row)
+          :when (guard-left-room-p guard-next-row guard-next-col room-rows room-cols)
+            :return nil  ;; Guard does not loop.
+          
+          ;; If bumped into an obstacle, turn right 90 degrees.
+          :if (minusp (aref room guard-next-row guard-next-col))
+            :do (progn
+                  (setf guard-direction (guard-turn guard-direction))
+                  (setf step-fn (guard-step-function guard-direction))
+                  (setf guard-pos-and-dir (list guard-row guard-col guard-direction)))
+          :else ;; No obstacle, take a step.
+          :do (progn
+                (setf guard-row guard-next-row
+                      guard-col guard-next-col)
+                (setf guard-pos-and-dir (list guard-row guard-col guard-direction)))
+          ;; :when t 
+          ;;   :do (format t "Testing if ~a is in visited list ~a: ~a~%"
+          ;;               guard-pos-and-dir visited-positions
+          ;;               (member guard-pos-and-dir visited-positions :test #'equal))
+
+          ;; ;; Check if position and direction was seen before.
+          ;; :when (member (list guard-row guard-col guard-direction) visited-positions)
+          ;;   :do (format t "Current position and direction was seen before, exiting (~a, ~a, ~a)~%" guard-row guard-col guard-direction)
+            
+          :if (member guard-pos-and-dir visited-positions :test #'equal)
+            :return (length visited-positions) ;; Guard is looping.
+          :else  ;; If this position and direction is new, store it.
+            :do (push guard-pos-and-dir visited-positions))))
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-
   (let* ((room (first input))
          (room-rows (array-dimension room 0))
          (room-cols (array-dimension room 1))
@@ -99,8 +153,38 @@
           :counting (plusp (row-major-aref walked-room room-index)))))
 
 (defun solve-part-2 (input)
-  "Solve part 2 of puzzle."
-  )
+  "Solve part 2 of puzzle.
+
+   This one is a bit too complicated for me to do an optimal solution. I think I
+   have to brute force it and see how long it takes."
+  (let* ((room (first input))
+         (room-rows (array-dimension room 0))
+         (room-cols (array-dimension room 1))
+         (guard-pos (second input))
+         (room-with-obstacle nil)
+         (loop-count 0))
+    (loop :for obstacle-row :from 0 :below room-rows
+          :do (progn
+                (format t "Checking row ~a~%" obstacle-row)
+                (loop :for obstacle-col :from 0 :below room-cols
+                    :unless (minusp (aref room obstacle-row obstacle-row))
+                      :do (progn
+                            (setf room-with-obstacle (alexandria:copy-array room))
+                            (setf (aref room-with-obstacle obstacle-row obstacle-col) -1)
+                            (when (guard-loops-p room-with-obstacle guard-pos)
+                              (progn
+                                (format t "Loop with obstacle at ~a, ~a (~,2F%)~%"
+                                        obstacle-row obstacle-col
+                                        (* 100
+                                           (/
+                                            (+ obstacle-col
+                                               (* room-rows obstacle-row))
+                                            (* room-rows room-cols)))
+                                        )
+                                (incf loop-count)
+                                )
+                              )))))
+    loop-count))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 6 solution.
