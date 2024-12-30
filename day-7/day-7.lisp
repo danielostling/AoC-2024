@@ -85,6 +85,40 @@
           :when (= (evaluate terms combination) goal)
             :return t)))
 
+
+(defun concat-numbers (a b)
+  "Concatenate base 10 integer numbers a and b into a new number ab.
+
+   If a = 10 and b = 5, then return 105.
+   Found the algebra at https://math.stackexchange.com/a/579531
+
+   Could have saved myself a lot of thought and trouble by just foinf the
+   strings-concat-and-convert route, but meh."
+
+  ;; c(a,b) = b + a * 10^((floor(log10(b+1)) + abs(b+1/2) - (b-1/2)))
+  ;; Here goes...
+
+  (let ((c (+ b (* a (expt 10 (+ (ffloor (log (+ b 1) 10)) (abs (+ b 1/2)) (- (- b 1/2))))))))
+    (truncate c) ;; This is supposed to be an integer...
+    ))
+
+
+
+(defun equation2-solvable-p (goal terms)
+  "Evaluate if equation is solvable.
+
+   Combine terms with binary operators 'special-add', 'special-mul' and
+   'special-concat', where operators have same precedence. Return t if there is
+   an operator-and-term combination with same value as given goal. Else, return
+   nil."
+ 
+  ;; Do a bit of a "hack" here; let 1 represent add and 0 represent mul.
+  ;; Produce all combinations og add and mul and loop over them.
+  ;; Exit early if applied operators overshoot goal.
+  ;; Return as soon as a valid combination is found.
+
+  )
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
   (loop :for parts :in input
@@ -95,7 +129,11 @@
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  (loop :for parts :in input
+        :for goal = (first parts)
+        :for terms = (rest parts)
+        :when (equation2-solvable-p goal terms)
+          :sum goal))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 7 solution.
