@@ -75,10 +75,10 @@
    operators have same precedence. Return t if there is an operator-and-term
    combination with same value as given goal. Else, return nil."
 
-  ;; Do a bit of a "hack" here; let 1 represent add and 0 represent mul.
-  ;; Produce all combinations og add and mul and loop over them.
-  ;; Exit early if applied operators overshoot goal.
-  ;; Return as soon as a valid combination is found.
+  ;; Do a bit of a "hack" here; let 1 represent add and 0 represent mul.  This
+  ;; is just for funsies, not really a good solution. While compact, it's not
+  ;; easy to extend.  Produce all combinations of add and mul and loop over
+  ;; them.  Return when valid combination is found.
   (let* ((operator-slots (1- (length terms)))
          (possible-operator-combinations (expt 2 operator-slots)))
     (loop :for combination :from 0 :to possible-operator-combinations
@@ -97,12 +97,9 @@
 
   ;; c(a,b) = b + a * 10^((floor(log10(b+1)) + abs(b+1/2) - (b-1/2)))
   ;; Here goes...
-
   (let ((c (+ b (* a (expt 10 (+ (ffloor (log (+ b 1) 10)) (abs (+ b 1/2)) (- (- b 1/2))))))))
-    (truncate c) ;; This is supposed to be an integer...
+    (truncate c) ;; Expression will produce an integer, skip fractional part.
     ))
-
-
 
 (defun equation2-solvable-p (goal terms)
   "Evaluate if equation is solvable.
@@ -111,12 +108,19 @@
    'special-concat', where operators have same precedence. Return t if there is
    an operator-and-term combination with same value as given goal. Else, return
    nil."
- 
-  ;; Do a bit of a "hack" here; let 1 represent add and 0 represent mul.
-  ;; Produce all combinations og add and mul and loop over them.
-  ;; Exit early if applied operators overshoot goal.
-  ;; Return as soon as a valid combination is found.
 
+  ;; The "hack" from part 1 where 1 represents add and 0 represents mul can no
+  ;; longer be used as there are three operators.  No biggie, just use lists
+  ;; instead; the binary thing was just a fun experiement :) Produce all
+  ;; combinations of add, mul and combine, and loop over them.  Return as soon
+  ;; as a valid combination is found.
+
+  (let* ((operator-slots (1- (length terms)))
+         (operators (list '+ '* 'conc))
+         (possible-operator-combinations (expt (length operators) operator-slots)))
+    (loop :for combination :from 0 :to possible-operator-combinations
+          :when (= (evaluate terms combination) goal)
+            :return t)) 
   )
 
 (defun solve-part-1 (input)
