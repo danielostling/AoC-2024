@@ -152,10 +152,8 @@
    than the second (in some appropriate sense). If the first argument is greater
    than or equal to the second (in the appropriate sense), then the predicate
    should return false."
-
-  This sorter predicate does not work.
-  
   (cond ((< (first tpl1) (first tpl2)) t)
+        ((> (first tpl1) (first tpl2)) nil)
         ((< (second tpl1) (second tpl2)) t)
         (t nil)))
 
@@ -168,10 +166,12 @@
          (antinode-positions (loop :for freq
                                      :in freqs
                                    :nconcing (antinodes freq input)))
-         )
-    (intersection (sort antenna-positions :test #'equal)
-                  (sort antinode-positions :test #'equal))
-    
+         (shared-positions (intersection (sort (copy-seq antenna-positions) #'tuple-less-p)
+                                         (sort (copy-seq antinode-positions) #'tuple-less-p) :test #'equal)))
+    (format t "antenna-positions: ~a~%" antenna-positions)
+    (format t "antinode-positions: ~a~%" antinode-positions)
+    (format t "intersection: ~a~%" shared-positions)
+    (- (length antinode-positions) (length shared-positions))
     )
 
   )
