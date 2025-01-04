@@ -1,0 +1,8 @@
+day-1/day-1.asd
+day-2/day-2.asd
+day-3/day-3.asd
+day-4/day-4.asd
+day-5/day-5.asd
+day-6/day-6.asd
+day-7/day-7.asd
+day-8/day-8.asd
