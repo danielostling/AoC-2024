@@ -30,7 +30,6 @@
 
    Read input, which is a string of integers, and return a vector where positive numbers are file
    IDs and -1 is free space. First element in vector is leftmost number in input."
-
   (flet ((pad-input (input)
            "If input string has odd length, add a 0 to pad zero free space."
            (let* ((blocks-definition (coerce (first input) 'list))
@@ -54,10 +53,60 @@
                         :do (vector-push-extend -1 blockmap))))
     blockmap)))
 
+(defun print-blockmap (blockmap)
+  (loop :for file-id :across blockmap
+        :do (format t "~a" (if (minusp file-id) "." file-id)))
+  (format t "~%"))
+
+(defun defrag (blockmap)
+  "Perform a defragmentation on blockmap and return its result.
+
+   Move one block at a time in blockmap from right-to-left to first available
+   left-to-right free slot. Return defragmented blockmap."
+  (flet ((get-next-free-idx (idx blockmap)
+           "Return next free slot in blockmap.
+
+            Start at idx and move 'right' in blockmap. If no free slots remain,
+            return nil."
+           (let ((size (length blockmap)))
+             (loop :for free-idx :from idx :below size
+                   :when (minusp (aref blockmap free-idx))
+                     :return free-idx)))
+         (get-next-file-id-idx (idx blockmap)
+           "Return next idx of a file-id in blockmap.
+
+            Start at idx and move 'left' in blockmap until an idx for a file-id
+            is found. If no such idx remains, return nil."
+           (loop
+             :for file-id-idx :from idx :downto 0
+             :for file-id = (aref blockmap file-id-idx)
+             :when (plusp file-id)
+               :return file-id-idx)
+           ))
+    (let* ((blockmap-size (1- (length blockmap)))
+           (left-idx (get-next-free-idx 0 blockmap)))
+    (loop
+      :for right-idx = blockmap-size :then (get-next-file-id-idx right-idx blockmap)
+      :when (>= left-idx right-idx)
+        :return blockmap
+      :do
+         (setf (aref blockmap left-idx) (aref blockmap right-idx)
+               (aref blockmap right-idx) -1
+               left-idx (get-next-free-idx left-idx blockmap))))))
+
+(defun checksum (blockmap)
+  "Calculate blockmap checksum.
+
+   Sum file ID multiplied by block index, left to right. Free space is ignored."
+  (let ((size (length blockmap)))
+    (loop :for idx :from 0 :below size
+          :for file-id = (aref blockmap idx)
+          :when (not (minusp file-id))
+            :sum (* idx file-id))))
+
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
-  input
-  )
+  (checksum (defrag input)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
