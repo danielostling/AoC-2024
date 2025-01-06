@@ -20,6 +20,18 @@
                     :do (setf (aref arr row col) c)))
     arr))
 
+(defun get-vector (v1 v2)
+  "Return a vector v' such that v1 + v' = v2.
+
+   v1 and v2 are (row col) tuples, row and col are integers."
+  (mapcar #'- v2 v1))
+
+(defun add-vectors (v1 v2)
+  "Return a vector v' such that v' = v1 + v2.
+
+   v1 and v2 are (row col) tuples, row and col are integers."
+  (mapcar #'+ v1 v2))
+
 (defun tuple-less-p (tpl1 tpl2)
   "Predicate should return true if and only if the first argument is strictly less
    than the second (in some appropriate sense). If the first argument is greater
@@ -80,119 +92,29 @@
                                       #'tuple-less-p)
                         :collect pairs)))
 
-;; (defun antinode-positions (antenna-pos1 antenna-pos2 mapping)
-;;   "Calculate positions of antinodes given antenna pair position and a mapping.
+(defun get-antinode-positions (antenna-pos1 antenna-pos2 mapping &optional (harmonics nil))
+  "Return list of antinode positions going from antenna-pos1 towards antenna-pos 2.
 
-;;    antenna-pos1 and antenna-pos2 are (row col) tuples representing antenna
-;;    positions.
+   mapping is the puzzle input map.  If harmonics is not nil, count each
+   harmonic on the way as well. Else, just count one antinode."
+  (let* ((directional-vec (get-vector antenna-pos1 antenna-pos2))
+         (positions ()))
+    (loop
+      :for counter = 1 :then (1+ counter)
+      :for cur-pos = (if harmonics
+                         antenna-pos1
+                         (add-vectors antenna-pos2 directional-vec))
+        :then (add-vectors cur-pos directional-vec)
+      :when (or
+             (null (in-bounds-p (first cur-pos) (second cur-pos) mapping))
+             (and
+              (not harmonics)
+              (> counter 1)))
+        :return positions
+      :do (pushnew cur-pos positions :test #'equal))
+    positions))
 
-;;    An antinode is described in the puzzle as:
-;;      '... , an antinode occurs at any point that is perfectly in line with two
-;;      antennas of the same frequency - but only when one of the antennas is twice
-;;      as far away as the other. This means that for any pair of antennas with the
-;;      same frequency, there are two antinodes, one on either side of them.'
-
-;;    Tuples antenna-pos1 and antenna-pos2 are sorted, so that lowest row comes
-;;    first. If rows are equal, lowest col comes first. This eliminates some
-;;    positioning combinations.
-
-;;    The following combinations are possible
-;;    Combination 1, p1 is above and left compared to p2.
-;;    +--------+
-;;    | p1     |
-;;    |        |
-;;    |     p2 |
-;;    +--------+
-
-;;    Combination 2, p1 is left of p2 and horizontally aligned to p2 (as row is
-;;    equal, col sorting puts p1 to the left).
-;;    +--------+
-;;    |        |
-;;    | p1  p2 |
-;;    |        |
-;;    +--------+
-
-;;    Combination 3, p1 is above and right compared to p2.
-;;    +--------+
-;;    |     p1 |
-;;    |        |
-;;    | p2     |
-;;    +--------+
- 
-;;    Combination 4, p1 is above p2 and vertically aligned to p2.
-;;    +--------+
-;;    |   p1   |
-;;    |        |
-;;    |   p2   |
-;;    +--------+"
-;;   (let* ((r1 (first antenna-pos1))
-;;          (c1 (second antenna-pos1))
-;;          (r2 (first antenna-pos2))
-;;          (c2 (second antenna-pos2))
-;;          (r-delta (abs (- r1 r2)))
-;;          (c-delta (abs (- c1 c2)))
-;;          (a1-r nil)
-;;          (a1-c nil)
-;;          (a2-r nil)
-;;          (a2-c nil)
-;;          (antinodes ()))
-
-;;     ;; Combination 1, p1 is above and left compared to p2.
-;;     (when (and (> c2 c1)
-;;                (> r2 r1))
-;;       (setf a1-c (- c1 c-delta)
-;;               a1-r (- r1 r-delta)
-;;               a2-c (+ c2 c-delta)
-;;               a2-r (+ r2 r-delta)))
-    
-;;     ;; Combination 2, p1 is left of p2 and horizontally aligned to p2.
-;;     (when (and (> c2 c1)
-;;                (= r2 r1))
-;;       (setf a1-c (- c1 c-delta)
-;;               a1-r r1
-;;               a2-c (+ c2 c-delta)
-;;               a2-r r1))
-
-;;     ;; Combination 3, p1 is above and right compared to p2.
-;;     (when (and (< c2 c1)
-;;                (> r2 r1))
-;;       (setf a1-c (+ c1 c-delta)
-;;               a1-r (- r1 r-delta)
-;;               a2-c (- c2 c-delta)
-;;               a2-r (+ r2 r-delta)))
-
-;;     ;; Combination 4, p1 is above p2 and vertically aligned to p2.
-;;     (when (and (= c2 c1)
-;;                (> r2 r1))
-;;       (setf a1-c c1
-;;               a1-r (- r1 r-delta)
-;;               a2-c c2
-;;               a2-r (+ r2 r-delta)))
-    
-;;     (when (in-bounds-p a1-r a1-c mapping)
-;;       (push (list a1-r a1-c) antinodes))
-;;     (when (in-bounds-p a2-r a2-c mapping)
-;;       (push (list a2-r a2-c) antinodes))    
-;;     antinodes))
-
-
-(defun get-vector (p1 p2)
-  "Return a vector v such that p1 + v = p2.
-
-   p1 and p2 are (row col) tuples, row and col are integers."
-  (mapcar #'- p2 p1))
-
-(defun antinode-positions (antenna-pos1 antenna-pos2 mapping)
-  (let* ((rows (array-dimension 0 mapping))
-         (cols (array-dimension 1 mapping))
-         (vector-p1-to-p2 (get-vector antenna-pos2 antenna-pos1))
-         (vector-p2-to-p1 (get-vector antenna-pos1 antenna-pos2))
-         )
-
-    )
-  )
-
-(defun antinodes (freq mapping)
+(defun antinodes (freq mapping &optional (harmonics nil))
   "Return a list of (row col) pairs for each antinode for given frequency and
    mapping."
   (let* ((antenna-positions (antenna-pos-per-freq freq mapping))
@@ -200,8 +122,10 @@
     (loop :for antenna-pair :in antenna-pairs
           :for antenna-pos1 = (first antenna-pair)
           :for antenna-pos2 = (second antenna-pair)
-          :nconcing (antinode-positions antenna-pos1 antenna-pos2 mapping))
-    ))
+          :for antinodes-1-to-2 = (get-antinode-positions antenna-pos1 antenna-pos2 mapping harmonics)
+          :for antinodes-2-to-1 = (get-antinode-positions antenna-pos2 antenna-pos1 mapping harmonics)
+          :for both-directions = (append antinodes-1-to-2 antinodes-2-to-1)
+          :nconcing both-directions)))
 
 ;; Examples from puzzle description.
 ;;
@@ -232,20 +156,20 @@
 ;; . . . . . . . . . . # . 10
 ;; . . . . . . . . . . # . 11
 
-(defun solve-part-1 (input)
+(defun solve-part-1 (input &optional (harmonics nil))
   "Solve part 1 of puzzle."
   (let* ((freqs (frequencies input))
          (antinode-positions
            (sort (loop :for freq :in freqs
-                       :nconcing (antinodes freq input))
-            #'tuple-less-p))
+                       :nconcing (antinodes freq input harmonics))
+                 #'tuple-less-p))
          (unique-antinode-positions
            (remove-duplicates antinode-positions :test #'equal)))
     (length unique-antinode-positions)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  (solve-part-1 input t))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 8 solution.
