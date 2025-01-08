@@ -61,57 +61,92 @@
                           :when (zerop (aref topo-map row col))
                             :collect `(,row ,col)))))
 
-(defun elevation-or-nil (row col topo-map)
+(defun elevation-or-nil (position topo-map)
   "Return elevation at position or nil if outside of topo-map."
   (destructuring-bind (rows cols) (array-dimensions topo-map)
-    (if (or (minusp row)
-            (minusp col)
-            (> row (1- rows))
-            (> col (1- cols)))
-        nil
-        (aref topo-map row col))))
+    (destructuring-bind (row col) position
+      (if (or (minusp row)
+              (minusp col)
+              (> row (1- rows))
+              (> col (1- cols)))
+          nil
+          (aref topo-map row col)))))
 
 (defun peek (position direction topo-map)
   "Standing at position, look one step in direction on topo-map.
 
-   Return elevation of peeked position or nil if outside topo-map."
+   Return (peeked-position elevation-at-peeked-position), or nil if outside topo-map."
   (destructuring-bind (row col) position
-    (case direction
-      (:north (elevation-or-nil (1- row) col topo-map))
-      (:east  (elevation-or-nil row (1+ col) topo-map))
-      (:south (elevation-or-nil (1+ row) col topo-map))
-      (:west  (elevation-or-nil row (1- col) topo-map)))))
+    (let* ((peeked-position
+             (case direction
+               (:north `(,(1- row) ,col))
+               (:east  `(,row ,(1+ col)))
+               (:south `(,(1+ row) ,col))
+               (:west  `(,row ,(1- col)))))
+           (elevation-at-peeked-position (elevation-or-nil peeked-position topo-map)))
+      (when elevation-at-peeked-position
+          `(,peeked-position ,elevation-at-peeked-position)))))
 
-(defun step (start topo-map)
+(defun scan-for-forks (position topo-map)
+  "Return list of all forks at position in topo-map."
+  (let ((current-elevation (elevation-or-nil position topo-map)))
+    (loop :for direction :in '(:west :north :east :south)
+          :for (possible-position possible-elevation) = (peek position direction topo-map)
+          :when (and possible-position
+                     possible-elevation
+                     (= possible-elevation (1+ current-elevation)))
+            :collect possible-position)))
+
+(defun take-one-step (start topo-map)
   "Starting at position start, take a (valid) step.
 
-   Return (new-position elevation-at-new-position forks)."
-
-  (flet ((scan-for-forks (position topo-map)))
-
-
-    )
-  
-  )
+   Return (new-position elevation-at-new-position forks). new-position,
+   elevation-at-new-position and forks will be nil if there are no possible
+   steps."
+  (if (null start)
+      '(nil nil nil)
+      (let* ((forks (scan-for-forks start topo-map))
+             (next-position (pop forks)))
+        (if (null next-position)
+            '(nil nil nil)
+            `(,next-position
+              ,(elevation-or-nil next-position topo-map)
+              ,forks)))))
 
 (defun walk-trail (trailhead topo-map)
-  "Walk a trail from trailhead across topo-map to find a destination and possible forks.
-   Return a list (destination forks) where forks is a list of trail fork positions."
-  )
+  "Walk a trail from trailhead across topo-map to find a destination and possible
+   forks.
+   Return a list (destination forks) where forks is a list of trail fork
+   positions.  If trail doesn't lead to a destination, return (nil forks)."
+  (let ((forks (scan-for-forks trailhead topo-map))
+        (current-position trailhead))
+    ;; First, check edge case where trail is part of a fork, and trailhead is
+    ;; already at elevation 9.
+    (if (equal (elevation-or-nil trailhead topo-map) 9) 
+        `(,trailhead ,forks)
+        (loop
+          :for (next-position elevation new-forks) = (take-one-step current-position topo-map)
+          :when new-forks
+            :do (nconc forks new-forks)
+          :when (null next-position)
+            :do (if (= elevation 9)
+                    (return `(,current-position ,forks))
+                    (return `(nil ,forks)))))))
 
 (defun score-trail (trailhead topo-map)
   "Return the score of the trail starting at trailhead."
   (let ((remaining-forks `(,trailhead))
         (destinations ()))
     (loop
-      :for cur-trailhead = (pop remaining-forks)
-      :for (destination new-forks) = (walk-trail cur-trailhead topo-map)
+      :for current-trailhead = (pop remaining-forks)
+      :for (destination new-forks) = (walk-trail current-trailhead topo-map)
+      :when destination
+        :do (pushnew destination destinations :test #'equal)
+      :when new-forks
+        :do (nconc remaining-forks new-forks)
       :when (and (null remaining-forks)
                  (null new-forks))
-        :return (pushnew destination destinations :test #'equal)  ;; Don't like this, not sure how to avoid.
-      :do (progn
-            (pushnew destination destinations :test #'equal)
-            (nconc new-forks remaining-forks)))))
+        :return destinations)))
 
 (defun score-trails (topo-map)
   "Find all trails and their trail scores. Return as list of (trailhead score) tuples."
