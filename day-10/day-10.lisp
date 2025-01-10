@@ -2,6 +2,9 @@
 
 (in-package #:day-10)
 
+;;;; This is a graph traversal problem. I will assume graph(s) are DAGs because of puzzle
+;;;; description of valid steps.
+;;;;
 ;;;; The following definitions are used in this code.
 ;;;;
 ;;;; - The topo-map is a 2D array of integers from 0 to 9, representing the elevation at various
@@ -16,6 +19,8 @@
 ;;;; - A fork in a trail is a position where a trail takes two or three directions. The position of
 ;;;;   the fork in the topo-map is the first step on the forked trail.
 ;;;; - Trail score is defined as the number of destinations reachable directly or by forks from a trailhead.
+;;;; - A hiking trail is a distinct path from trailhead to destination, inclusive.
+;;;; - A path is a list of positions.
 
 (defun read-input (path)
   "Read and return puzzle input."
@@ -25,7 +30,6 @@
   "Parse input lines into solution-friendly format.
 
    From puzzle description:
-
    'The topographic map indicates the height at each position using a scale from 0 (lowest) to
     9 (highest). For example:
 
@@ -51,16 +55,6 @@
                          (digit-char-p char))))
     topo-map))
 
-(defun get-trailheads (topo-map)
-  "Return a list of positions where elevation is 0 in topo-map."
-  (destructuring-bind
-      (rows cols)
-      (array-dimensions topo-map)
-    (loop :for row :from 0 :below rows
-          :nconcing (loop :for col :from 0 :below cols
-                          :when (zerop (aref topo-map row col))
-                            :collect `(,row ,col)))))
-
 (defun elevation-or-nil (position topo-map)
   "Return elevation at position or nil if outside of topo-map."
   (if position
@@ -76,7 +70,6 @@
 
 (defun peek (position direction topo-map)
   "Standing at position, look one step in direction on topo-map.
-
    Return (peeked-position elevation-at-peeked-position), or nil if outside topo-map."
   (if position
       (destructuring-bind (row col) position
@@ -92,6 +85,8 @@
       nil))
 
 (defun valid-next-step-p (other-position other-elevation current-elevation)
+  "Return t if other-position at elevation other-elevation is walkable from current-elevation, else
+   nil. Test looks a bit weirc, but that's because other-postion and other-elevation may be nil."
   (and other-position other-elevation (= other-elevation (1+ current-elevation))))
 
 (defun possible-steps (position topo-map)
@@ -99,136 +94,84 @@
   (let ((current-elevation (elevation-or-nil position topo-map)))
     (loop :for direction :in '(:west :north :east :south)
           :for (possible-position possible-elevation) = (peek position direction topo-map)
-          ;; :when t
-          ;;   :do (format t "      possible-steps: at ~a looking ~a towards ~a; is it a step? ~a~%"
-          ;;               position direction possible-position (valid-next-step-p possible-position possible-elevation current-elevation))
           :when (valid-next-step-p possible-position possible-elevation current-elevation)
             :collect possible-position)))
 
-(defun take-one-step (start topo-map)
-  "Starting at position start, take a (valid) step.
+(defun topo-map-to-dags (topo-map)
+  "Convert a topo-map to a 'DAG hash'.
+   Depending on the topo-map, this can really generate multiple isolated graphs. Reachability is
+   dependent on starting node.
+   - Hash keys are (row col) tuples in topo-map.
+   - Hash values are (elevation reachable-nodes dag-id) triples where elevation is the topo-map
+     elevation at hash key position, reachable-nodes is a list of (row col) tuples that are
+     reachable from hash key position, and dag-id is an integer indicating which dag the key node
+     belongs to."
+  (let ((dag (make-hash-table :test #'equal)))
+    (destructuring-bind (rows cols) (array-dimensions topo-map)
+      (loop :for row :from 0 :below rows
+            :do (loop :for col :from 0 :below cols
+                      :for node = `(,row ,col)
+                      :for reachable-nodes = (possible-steps node topo-map)
+                      :for elevation = (elevation-or-nil node topo-map)
+                      :do (setf (gethash node dag) `(,elevation ,reachable-nodes))))
+      dag)))
 
-   Return (new-position elevation-at-new-position forks). new-position,
-   elevation-at-new-position and forks will be nil if there are no possible
-   steps."
-  (if (null start)
-      '(nil nil nil)
-      (let* ((forks (possible-steps start topo-map))
-             (next-position (pop forks)))
-        ;; (format t "      take-one-step: at ~a, move to ~a and deal with ~a later~%"
-        ;;         start next-position forks)
-        (if (null next-position)
-            '(nil nil nil)
-            `(,next-position
-              ,(elevation-or-nil next-position topo-map)
-              ,forks)))))
+(defun get-nodes-by-value (val dag &optional (test #'equal))
+  "Return a list of nodes from dag where elevation is equal to val."
+  (loop :for node :being :the :hash-key :using (:hash-value (elevation nil)) :of dag
+        :when (funcall test val elevation)
+          :collect node))
 
-(defun walk-trail (trailhead topo-map)
-  "Walk a trail from trailhead across topo-map to find a destination and possible
-   forks.
-   Return a list (destination forks) where forks is a list of trail fork
-   positions.  If trail doesn't lead to a destination, return (nil forks)."
-;;  (format t "    walk-trail: looking for initial forks at ~a~%" trailhead)
-  (let ((forks (possible-steps trailhead topo-map))
-        (current-position trailhead)
-        (are-we-there-yet (equal (elevation-or-nil trailhead topo-map) 9)))
-    ;; (format t "    walk-trail: initial forks: ~a~%" forks)
-    ;; (format t "    walk-trail: trailhead = destination? ~a~%" are-we-there-yet)
-    ;; First, check edge case where trail is part of a fork, and trailhead is
-    ;; already at elevation 9.
-    (if are-we-there-yet
-        (progn
-;;          (format t "    walk-trail: at destination, returning (~a ~a)~%" trailhead forks)
-          `(,trailhead ,forks))
-        (loop
-          :for (new-position new-elevation new-forks) = (take-one-step current-position topo-map)
-          ;; :when t
-          ;;   :do (format t "    walk-trail: step ~a => ~a, elevation-next-pos = ~a, new-forks(old pos) = ~a, forks = ~a~%"
-          ;;               current-position new-position new-elevation new-forks forks)
-          :when new-forks
-            :do (dolist (new-fork new-forks)
-                  (pushnew new-fork forks :test #'equal))
-          ;; :when (null new-position)
-          ;;   :do (format t "    walk-trail: reached a nil position, this is a dead end, exiting~%")
-          :when (null new-position)
-            :return `(nil ,forks)
-          ;; :when (equal new-elevation 9)
-          ;;   :do (format t "    walk-trail: reached a destination at ~a, returning~%" new-position)
-          :when (equal new-elevation 9)
-            :return `(,new-position ,(remove new-position forks :test #'equal))
-          :do (progn
-                (setf current-position new-position)
-;;                (format t "    walk-trail: now standing at ~a with forks ~a~%" current-position forks)
-                (setf forks (remove current-position forks :test #'equal))
-                ;; (format t "    walk-trail: removed current-position ~a from forks, now ~a~%"
-                ;;         current-position forks)
-                )
+(defun path-exists (start-node goal-node dag)
+  "Return t if any path exists between start-node and goal-node in dag, else nil"
+  (labels ((dfs (current-node visited-nodes)
+             (cond
+               ((equal current-node goal-node) t)
+               ((member current-node visited-nodes :test #'equal) nil)
+               (t (some (lambda (neighbor-node)
+                          (dfs neighbor-node (cons current-node visited-nodes)))
+                        (second (gethash current-node dag)))))))
+    (dfs start-node nil)))
 
-          ))))
+(defun destinations-per-trailhead (trailhead dag)
+  "Return list of destinations reachable from trailhead in dag."
+  (let ((possible-destinations (get-nodes-by-value 9 dag)))
+    (loop :for possible-destination :in possible-destinations
+          :when (path-exists trailhead possible-destination dag)
+            :collect possible-destination)))
 
-(defun score-trail (trailhead topo-map)
-  "Return the score of the trail starting at trailhead."
-  (let ((remaining-forks `(,trailhead))
-        (checked-forks nil)
-        (destinations ()))
-    ;; (format t "  score-trail: starting trail at ~a~%" trailhead)
-    ;; (format t "  score-trail: looking for initial forks~%")
-    (loop
-      :for current-trailhead = (pop remaining-forks)
-      :for (destination new-forks) = (walk-trail current-trailhead topo-map)
-      :for counter = 100000 :then (1- counter)
-      :when current-trailhead
-        :do (progn
-              ;; (format t "  score-trail: adding current-trailhead ~a to checked-forks ~a~%"
-              ;;         current-trailhead checked-forks)
-              (pushnew current-trailhead checked-forks :test #'equal))
-      ;; :when t
-      ;;   :do (format t "  score-trail: current-trailhead: ~a, destination: ~a, new-forks: ~a, remaining-forks: ~a~%"
-      ;;               current-trailhead destination new-forks remaining-forks)
-      :when destination
-        :do (progn
-              (pushnew destination destinations :test #'equal)
-;;              (format t "  score-trail: added ~a to destinations, now ~a~%" destination destinations)
-              )
-      :when new-forks
-        :do (progn
-;;              (format t "  score-trail: added new forks ~a to remaining-forks~%" new-forks)
-              (dolist (new-fork new-forks)
-                (unless (member new-fork checked-forks :test #'equal)
-                  (pushnew new-fork remaining-forks :test #'equal))))
-      :when (and (null remaining-forks)
-                 (null new-forks))
-        :do (progn
-              ;; (format t "  score-trail: after ~a loops, no more forks remain, returning destinations ~a~%"
-              ;;         (- 100 counter) destinations)
-              (return destinations))
-        
-      ;; :if (zerop counter)
-      ;;   :do (progn
-      ;;         (format t "  score-trail: ran out of loops, exiting~%")
-      ;;         (return))
-      ;; :else
-      ;;   :do (format t "  score-trail: will next start another loop, examining trail fork ~a~%"
-      ;;               (first remaining-forks))
+(defun paths-between (trailhead destination dag)
+  (let ((paths nil))
+    (labels
+        ((dfs (current-node path)
+           "Collect paths between start-node and goal-node in dag."
+           (push current-node path)
+           (if (equal current-node destination)
+               (push (reverse path) paths)
+               (dolist (next-node (second (gethash current-node dag)))
+                 (dfs next-node path)))))
+      (dfs trailhead '())
+      paths)))
 
-      )
-    ))
+(defun trails-per-trailhead (trailhead dag)
+  "Return a list of distinct hiking paths from trailhead to reachable destinations."
+  (let ((destinations (destinations-per-trailhead trailhead dag)))
+          (loop :for destination :in destinations
+                :nconc (paths-between trailhead destination dag))))
 
-(defun score-trails (topo-map)
-  "Find all trails and their trail scores. Return as list of (trailhead score) tuples."
-  (let ((trailheads (get-trailheads topo-map)))
+(defun score-trails (topo-map &optional (measure :destinations))
+  "Find all trails and their trail scores. Return as list of (trailhead score) tuples.
+
+  measure is one of :destinations or :paths.
+    - When :destination is used, scoring is number of destinations reachable from given trailhead.
+    - When :paths is used, scoring is number of distint paths from trailhead to a destination."
+  (let* ((dag (topo-map-to-dags topo-map))
+         (trailheads (get-nodes-by-value 0 dag))
+         (score-func (case measure
+                       (:destinations #'destinations-per-trailhead)
+                       (:paths #'trails-per-trailhead))))
     (loop :for trailhead :in trailheads
-          :for count = 2000000 :then (1- count)
-          ;; :when t
-          ;;   :do (format t "score-trails: checking trailhead ~a out of ~a~%" trailhead trailheads)
-          :when (zerop count)
-            :do (progn
-;;                  (format t "score-trails: ran out of loops, exiting~%")
-                  (return trail-scores))
-          :collect `(,trailhead ,(score-trail trailhead topo-map)) :into trail-scores
-          :finally (return trail-scores))
-    )
-  )
+          :collect `(,trailhead ,(funcall score-func trailhead dag)))) )
 
 ;;    0 1 2 3 4 5 6 7 
 ;;   +---------------+
@@ -241,7 +184,7 @@
 ;; 6 |0 1 3 2 9 8 0 1| 6
 ;; 7 |1 0 4 5 6 7 3 2| 7
 ;;   +---------------+
-;;   0 1 2 3 4 5 6 7 
+;;    0 1 2 3 4 5 6 7 
 
 
 (defun test-one-head-rating-3 ()
@@ -303,12 +246,12 @@
 (defun solve-part-1 (input)
   "Solve part 1 of puzzle."
   (loop :for (trailhead destinations) :in (score-trails input)
-         :summing (length destinations))
-  )
+         :summing (length destinations)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+  (loop :for (trailhead paths) :in (score-trails input :paths)
+        :summing (length paths)))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 10 solution.
