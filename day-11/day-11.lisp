@@ -31,7 +31,17 @@
 (defparameter *cache* (make-hash-table :test #'equal))
 
 (defun stone-count (stone-marking blinks)
+  "Given stone marking and blinks, return the number of stones there will be after
+   that many blinks. This is a recursive function."
   (flet ((return-via-cache (&rest args)
+           "Memoization to reduce computation time using global *cache* hash.
+            More or less from OnLisp by Graham.
+
+            args are the function parameter values, and for this implementation,
+            the same function is always called, which is the stone-count
+            function. If the parameter values was already computed, return the
+            result from the cache, else compute it and store into cache for
+            future speed-up."
            (multiple-value-bind (result exists) (gethash args *cache*)
              (if exists
                  result
