@@ -135,31 +135,53 @@
             (push in-region regions)
             (setf remaining-positions not-in-region)))))
 
-(defun region-cost (plant garden)
+(defun perimeter-part-2 (region)
+  "Perimeter cost for part 2.
+   Given a REGION, calculate perimiter according to perimeter formula in part 2.
+
+   This one is a bit more complicated. Idea is to
+   1) Figure out the non-region neighbors,
+   2) Sort non-region neighbors on row value, then column value, ascending
+   3) Run a 'slice' through each row, starting at leftmost column, going right across columns,
+   4) Collect all column values for the slice into a list,
+
+   5) Find the 'segments' in the column value list, where a segment is a
+      sequence of integers with no whole number gaps.
+   6) Return number of segments as the perimeter value for that row,
+   7) Take next row, repeat from 3 until all rows are checked.
+
+   When the rows are done, do the same but for columns.
+
+   Phew. Let's try it."
+  )
+
+(defun perimeter-part-1 (region)
+  "Perimeter cost for part 1.
+   Given a REGION, calculate perimiter according to perimeter formula in part 1."
+  (loop :for plot :in region
+        :for candidates = (possible-neighbors plot)
+        :for non-region-neighbors = (set-difference candidates region :test #'equal)
+        :summing (length non-region-neighbors)))
+
+(defun region-cost (plant garden perimeter-fn)
   "Given a PLANT and a GARDEN, return region cost, which is a sum of area *
    perimeter for each region for the PLANT in the GARDEN."
   (let* ((plots (plant-plots plant garden))
-         (regions (plant-regions plots))
-         (total-cost 0))
-    (dolist (region regions)
-      (let ((region-area 0)
-            (region-perimeter 0))
-        (dolist (plot region)
-          (let* ((candidates (possible-neighbors plot))
-                 (non-region-neighbors (set-difference candidates region :test #'equal)))
-            (incf region-perimeter (length non-region-neighbors))
-            (incf region-area)))
-        (incf total-cost (* region-area region-perimeter))))
-    total-cost))
+         (regions (plant-regions plots)))
+    (loop :for region :in regions
+          :for region-area = (length region)
+          :for region-perimeter = (funcall perimeter-fn region)
+          :summing (* region-area region-perimeter))))
 
 (defun solve-part-1 (garden)
   "Solve part 1 of puzzle."
   (loop :for plant :in (plant-list garden)
-        :sum (region-cost plant garden)))
+        :sum (region-cost plant garden #'perimeter-part-1)))
 
 (defun solve-part-2 (input)
   "Solve part 2 of puzzle."
-  )
+    (loop :for plant :in (plant-list garden)
+        :sum (region-cost plant garden #'perimeter-part-2)))
 
 (defun main (&optional (mode :full))
   "AoC 2024 day 12 solution.
